@@ -1,118 +1,247 @@
+from pathlib import Path
 
-import math
-
-import joblib
+import numpy as np
 import streamlit as st
+from PIL import Image
+from streamlit_drawable_canvas import st_canvas
 
 
-def forward(X1, X2):
-    """Compute a forward pass of the network."""
-    X1X2 = X1 * X2
-    a1 = max(0, -0.064 + (-0.57 * X1) + (-0.44 * X2) + (0.90 * X1X2))
-    a2 = max(0, 0.43 + (-0.18 * X1) + (0.63 * X2) + (-0.21 * X1X2))
-    a3 = max(0, 0.41 + (0.59 * X1) + (0.70 * X2) + (0.80 * X1X2))
-    a4 = max(0, -0.13 + (0.91 * X1) + (0.26 * X2) + (1.0 * X1X2))
-    a5 = max(0, 0.15 + (0.078 * X1) + (0.88 * X2) + (-0.12 * X1X2))
-    a6 = max(0, 0.31 + (0.080 * X1) + (0.11 * X2) + (-0.85 * X1X2))
-    a7 = max(0, 0.47 + (0.40 * X1) + (-0.13 * X2) + (0.41 * X1X2))
-    a8 = max(0, 0.29 + (-0.82 * X1) + (0.47 * X2) + (-0.59 * X1X2))
-    a9 = max(0, 0.57 + (-0.56 * a1) + (-0.54 * a2) + (-0.34 * a3) + (-0.38 * a4) + (0.27 * a5) + (-0.18 * a6) + (-0.37 * a7) + (-0.44 * a8))
-    a10 = max(0, 0.096 + (0.041 * a1) + (-0.26 * a2) + (0.44 * a3) + (0.60 * a4) + (-0.035 * a5) + (-0.28 * a6) + (-0.23 * a7) + (0.28 * a8))
-    a11 = max(0, 0.57 + (0.65 * a1) + (-0.0033 * a2) + (0.47 * a3) + (0.17 * a4) + (0.48 * a5) + (-0.24 * a6) + (-0.27 * a7) + (-0.68 * a8))
-    a12 = max(0, 0.11 + (0.33 * a1) + (-0.078 * a2) + (-0.53 * a3) + (1.3 * a4) + (-0.58 * a5) + (0.69 * a6) + (-0.0029 * a7) + (0.95 * a8))
-    a13 = max(0, -0.062 + (-0.67 * a1) + (0.47 * a2) + (0.75 * a3) + (-0.015 * a4) + (0.27 * a5) + (0.37 * a6) + (0.29 * a7) + (0.43 * a8))
-    a14 = max(0, 0.76 + (-0.63 * a1) + (-0.33 * a2) + (-0.37 * a3) + (0.0099 * a4) + (-0.48 * a5) + (-0.92 * a6) + (0.69 * a7) + (0.074 * a8))
-    a15 = max(0, 0.52 + (-0.30 * a9) + (0.56 * a10) + (-0.91 * a11) + (0.66 * a12) + (0.37 * a13) + (-0.98 * a14))
-    a16 = max(0, 0.28 + (-0.21 * a9) + (-0.46 * a10) + (-0.36 * a11) + (-0.39 * a12) + (-0.21 * a13) + (0.98 * a14))
-    a17 = max(0, -0.035 + (0.83 * a9) + (0.14 * a10) + (-0.58 * a11) + (1.2 * a12) + (-0.65 * a13) + (0.55 * a14))
-    a18 = max(0, -0.085 + (0.038 * a9) + (-0.066 * a10) + (-0.42 * a11) + (0.95 * a12) + (-0.42 * a13) + (0.44 * a14))
-    a19 = max(0, 0.35 + (0.45 * a15) + (0.72 * a16) + (-0.26 * a17) + (-0.43 * a18))
-    a20 = max(0, 0.21 + (-1.5 * a15) + (-0.91 * a16) + (1.4 * a17) + (0.77 * a18))
-    a21 = max(0, 0.22 + (0.36 * a15) + (0.61 * a16) + (-0.19 * a17) + (-0.28 * a18))
-    a22 = math.tanh(-0.037 + (0.88 * a19) + (-2.3 * a20) + (0.55 * a21))
-    return a22
-
-
-# ---------------------------------------------------------
-# Configuración de la página
-# ---------------------------------------------------------
-st.set_page_config(page_title="Predicción de Riesgo Cardíaco", page_icon="❤️", layout="centered")
-
-IMG_GENERAL = "https://clinicarisso.com/wp-content/uploads/2025/08/colesterol.jpg"
-IMG_SIN_RIESGO = "https://farmaciajonuriarte.com/wp-content/uploads/2021/02/hipercolesterolemia.jpg"
-IMG_CON_RIESGO = "https://blobcore.pulsoslp.com.mx/images/2022/01/17/colesterol-alto-focus-0-0-1044-675.jpg"
-
-st.title("❤️ Predicción de Riesgo de Problemas Cardíacos")
-st.image(IMG_GENERAL, use_container_width=True)
-
-st.header("🎯 Objetivo")
-st.write(
-    "Esta aplicación utiliza una red neuronal entrenada para estimar la probabilidad de que una "
-    "persona sufra un problema cardíaco a partir de su edad y su nivel de colesterol."
+st.set_page_config(
+    page_title="Modelo de IA para prendas",
+    page_icon="👕",
+    layout="centered",
+    initial_sidebar_state="collapsed",
 )
 
-st.header("📋 Instrucciones")
-st.write(
+MODEL_PATH = Path(__file__).resolve().parent / "fashion_mnist_modelo.keras"
+FALLBACK_MODEL_PATH = Path(__file__).resolve().parents[1] / "Perceptron" / "fashion_mnist_model.keras"
+CLASS_NAMES = [
+    "Camiseta / top",
+    "Pantalón",
+    "Suéter",
+    "Vestido",
+    "Abrigo",
+    "Sandalia",
+    "Camisa",
+    "Zapatilla",
+    "Bolso",
+    "Botín",
+]
+
+st.markdown(
     """
-    1. Ingrese la **edad** y el **nivel de colesterol** usando los deslizadores de la izquierda.
-    2. El sistema estandarizará automáticamente los valores con el mismo proceso usado en el entrenamiento
-       (eliminación de nulos, filtrado de rangos válidos, estandarización Z-score y multiplicación por 2).
-    3. Presione **"Predecir"** para obtener el resultado y una recomendación preventiva.
-    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;600;700;800&display=swap');
+
+    :root { --ink: #14231f; --mint: #d9f5e9; --lime: #d8f36b; --paper: #f5f3ed; --line: #b9c9c1; }
+    .stApp { background: var(--paper); color: var(--ink); font-family: Manrope, "Trebuchet MS", sans-serif; }
+    .block-container { max-width: 760px; padding: 2rem 1rem 1rem; }
+    h1, h2, h3, p, label, button, input, textarea, [data-testid="stMarkdownContainer"], [data-testid="stCaptionContainer"] { font-family: Manrope, "Trebuchet MS", sans-serif !important; letter-spacing: 0 !important; }
+    h1 { font-size: clamp(2.1rem, 8vw, 4.6rem) !important; font-weight: 800 !important; line-height: 1.05 !important; max-width: 650px; color: var(--ink) !important; }
+    h2, h3 { color: var(--ink) !important; line-height: 1.2 !important; }
+    p, label, [data-testid="stMarkdownContainer"] { font-size: 1rem; line-height: 1.55; }
+    .eyebrow { color: #527169; font-family: "DM Mono", Consolas, monospace !important; font-size: .75rem; font-weight: 500; line-height: 1.4; letter-spacing: .04em !important; text-transform: uppercase; }
+    .objective { border-left: 4px solid var(--lime); background: var(--mint); padding: 1rem 1.1rem; margin: 1.5rem 0 1.8rem; border-radius: 2px; }
+    .objective p { margin: 0; line-height: 1.55; }
+    [data-baseweb="tab-list"] { gap: .35rem; }
+    [data-baseweb="tab"] { font-family: Manrope, "Trebuchet MS", sans-serif !important; font-size: .95rem !important; font-weight: 700 !important; line-height: 1.3 !important; color: var(--ink) !important; white-space: nowrap; }
+    [data-testid="stButton"] button { font-family: Manrope, "Trebuchet MS", sans-serif !important; font-size: .95rem !important; font-weight: 700 !important; line-height: 1.25 !important; min-height: 2.75rem; }
+    [data-testid="stFileUploader"] label, [data-testid="stCameraInput"] label { line-height: 1.4 !important; }
+    [data-testid="stAlert"] p { font-size: .95rem !important; line-height: 1.45 !important; }
+    div[data-testid="stCanvas"] { display: flex; justify-content: center; }
+    div[data-testid="stCanvas"] > div { border: 2px solid var(--ink); box-shadow: 8px 8px 0 var(--lime); }
+    .canvas-note { color: #527169; font-family: "DM Mono", Consolas, monospace; font-size: .78rem; line-height: 1.4; text-align: center; margin: 1rem 0; }
+    .result { border: 1px solid var(--line); padding: 1rem 1.1rem; background: #fffefa; border-radius: 2px; }
+    .result-name { font-family: Manrope, "Trebuchet MS", sans-serif; font-size: 1.65rem; font-weight: 800; line-height: 1.2; margin: 0; }
+    .result-score { font-family: "DM Mono", Consolas, monospace; font-size: .85rem; font-weight: 500; line-height: 1.4; color: #527169; margin: .35rem 0 0; }
+    footer { text-align: center; color: #527169; margin-top: 3rem; font-family: "DM Mono", Consolas, monospace; font-size: .75rem; line-height: 1.5; }
+    @media (max-width: 600px) {
+        .block-container { width: 100%; padding: 1.1rem .75rem .5rem; }
+        h1 { font-size: 2.35rem !important; line-height: 1.08 !important; }
+        h2 { font-size: 1.45rem !important; }
+        h3 { font-size: 1.2rem !important; }
+        p, label, [data-testid="stMarkdownContainer"] { font-size: .95rem; }
+        [data-baseweb="tab-list"] { width: 100%; gap: 0; }
+        [data-baseweb="tab"] { flex: 1 1 0; padding-left: .25rem !important; padding-right: .25rem !important; font-size: .8rem !important; }
+        [data-testid="stHorizontalBlock"] { gap: .65rem; }
+        div[data-testid="stCanvas"] > div { box-shadow: 5px 5px 0 var(--lime); }
+        .result-name { font-size: 1.35rem; }
+        .objective { margin: 1.1rem 0 1.4rem; padding: .85rem .9rem; }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
-# Escalador entrenado en procesamiento.py (mismo preprocesamiento del entrenamiento)
-scaler = joblib.load("modelo_estandarizacion.joblib")
+st.markdown('<div class="eyebrow">Clasificación de imágenes · Fashion-MNIST</div>', unsafe_allow_html=True)
+st.title("Clasificador de prendas con IA")
+st.markdown(
+    '<div class="objective"><p><strong>Objetivo:</strong> identifica una prenda usando un dibujo, una fotografía tomada con la cámara o una imagen cargada desde tu dispositivo.</p></div>',
+    unsafe_allow_html=True,
+)
 
-st.sidebar.header("🩺 Datos del paciente")
-edad = st.sidebar.slider("Edad (años)", min_value=0, max_value=120, value=45, step=1)
-colesterol = st.sidebar.slider("Colesterol (mg/dL)", min_value=100, max_value=600, value=200, step=1)
+draw_tab, camera_tab, image_tab = st.tabs(["Dibujo", "Cámara", "Imagen"])
 
-predecir = st.sidebar.button("Predecir", type="primary")
+source_image = None
+source_name = ""
 
-if predecir:
-    # Mismo preprocesamiento que en el entrenamiento: estandarizar y multiplicar por 2
-    X_scaled = scaler.transform([[edad, colesterol]]) * 2
-    x1, x2 = X_scaled[0][0], X_scaled[0][1]
+with draw_tab:
+    st.subheader("Dibuja una prenda")
+    st.write("Usa el lápiz blanco sobre el fondo negro. Procura dibujar la silueta centrada y grande.")
+    canvas_result = st_canvas(
+        fill_color="rgba(0, 0, 0, 1)",
+        stroke_width=16,
+        stroke_color="#FFFFFF",
+        background_color="#000000",
+        height=280,
+        width=280,
+        drawing_mode="freedraw",
+        key="fashion_canvas",
+        display_toolbar=True,
+    )
+    if canvas_result.image_data is not None and np.any(canvas_result.image_data[:, :, :3] > 0):
+        source_image = canvas_result.image_data
+        source_name = "Dibujo"
+    st.markdown('<div class="canvas-note">El dibujo se transforma a 28 × 28 píxeles para el modelo.</div>', unsafe_allow_html=True)
 
-    salida = forward(x1, x2)
-    clase = 1 if salida >= 0 else -1
-    prob_riesgo = (salida + 1) / 2 * 100
-    prob_sin_riesgo = 100 - prob_riesgo
+with camera_tab:
+    st.subheader("Toma una fotografía")
+    st.write("Centra una sola prenda, con buena iluminación y un fondo sencillo.")
+    camera_image = st.camera_input("Abrir cámara", label_visibility="collapsed")
+    if camera_image is not None:
+        source_image = Image.open(camera_image).convert("RGBA")
+        source_name = "Cámara"
 
-    st.header("🔎 Resultado de la Predicción")
+with image_tab:
+    st.subheader("Selecciona una imagen")
+    st.write("Carga una imagen clara donde se vea una sola prenda.")
+    uploaded_image = st.file_uploader(
+        "Elegir archivo",
+        type=["png", "jpg", "jpeg", "webp"],
+        label_visibility="collapsed",
+    )
+    if uploaded_image is not None:
+        source_image = Image.open(uploaded_image).convert("RGBA")
+        source_name = "Imagen cargada"
 
-    if clase == 1:
-        st.image(IMG_CON_RIESGO, use_container_width=True)
-        st.error(f"⚠️ Riesgo de sufrir un problema cardíaco (Clase: {clase})")
-        st.error(f"Probabilidad de pertenecer a la clase de riesgo: **{prob_riesgo:.2f}%**")
+_, action_column = st.columns([2, 1])
+with action_column:
+    predict = st.button("Analizar imagen", type="primary", use_container_width=True)
 
-        st.subheader("💡 Recomendaciones preventivas")
-        st.markdown(
-            """
-            - Reducir el consumo de grasas saturadas y colesterol dietético.
-            - Realizar actividad física regular (mínimo 150 min/semana).
-            - Controlar el peso corporal y evitar el sobrepeso.
-            - Evitar el consumo de tabaco y limitar el alcohol.
-            - Consultar a un cardiólogo para un chequeo y posible tratamiento con estatinas.
-            - Mantener una dieta rica en fibra, frutas, verduras y pescado.
-            """
-        )
+
+@st.cache_resource
+def load_model(model_path: str):
+    import json
+    import tempfile
+    import zipfile
+
+    import tensorflow as tf
+
+    def remove_legacy_metadata(value):
+        if isinstance(value, dict):
+            value.pop("quantization_config", None)
+            for child in value.values():
+                remove_legacy_metadata(child)
+        elif isinstance(value, list):
+            for child in value:
+                remove_legacy_metadata(child)
+
+    with zipfile.ZipFile(model_path) as source:
+        temporary_model = tempfile.NamedTemporaryFile(suffix=".keras", delete=False)
+        with zipfile.ZipFile(temporary_model.name, "w") as target:
+            for item in source.infolist():
+                content = source.read(item.filename)
+                if item.filename == "config.json":
+                    config = json.loads(content.decode("utf-8"))
+                    remove_legacy_metadata(config)
+                    content = json.dumps(config).encode("utf-8")
+                target.writestr(item, content)
+        temporary_model.close()
+
+    return tf.keras.models.load_model(
+        temporary_model.name,
+        compile=False,
+    )
+
+
+def prepare_image(source_data) -> np.ndarray:
+    if isinstance(source_data, Image.Image):
+        grayscale = source_data.convert("L")
     else:
-        st.image(IMG_SIN_RIESGO, use_container_width=True)
-        st.success(f"✅ Sin riesgo de sufrir un problema cardíaco (Clase: {clase})")
-        st.success(f"Probabilidad de no pertenecer a la clase de riesgo: **{prob_sin_riesgo:.2f}%**")
+        grayscale = Image.fromarray(source_data.astype("uint8"), mode="RGBA").convert("L")
 
-        st.subheader("💡 Recomendaciones para mantener la salud cardíaca")
-        st.markdown(
-            """
-            - Mantener una alimentación balanceada baja en grasas saturadas.
-            - Continuar con actividad física regular.
-            - Realizar chequeos médicos periódicos de colesterol y presión arterial.
-            - Evitar el sedentarismo y el consumo de tabaco.
-            """
-        )
+    grayscale_array = np.asarray(grayscale, dtype="uint8")
+    border_pixels = np.concatenate(
+        [grayscale_array[0, :], grayscale_array[-1, :], grayscale_array[:, 0], grayscale_array[:, -1]]
+    )
+    if border_pixels.mean() > 127:
+        grayscale_array = 255 - grayscale_array
+        grayscale = Image.fromarray(grayscale_array, mode="L")
 
-st.divider()
-st.caption("Ejemplo usando modelos playground.scienxlab.org con UNAB 2026")
-st.caption("Realizado por Alfredo Diaz")
+    foreground = grayscale_array > 8
+    if foreground.any():
+        rows, columns = np.where(foreground)
+        left, right = columns.min(), columns.max() + 1
+        top, bottom = rows.min(), rows.max() + 1
+        cropped = grayscale.crop((left, top, right, bottom))
+        side = max(cropped.width, cropped.height)
+        padded = Image.new("L", (side, side), 0)
+        offset = ((side - cropped.width) // 2, (side - cropped.height) // 2)
+        padded.paste(cropped, offset)
+        resized = padded.resize((24, 24), Image.Resampling.LANCZOS)
+        centered = Image.new("L", (28, 28), 0)
+        centered.paste(resized, (2, 2))
+    else:
+        centered = Image.new("L", (28, 28), 0)
+
+    image_28_uint8 = np.asarray(centered, dtype="uint8")
+    image_28_uint8 = np.clip(image_28_uint8, 0, 255)
+    image_28 = image_28_uint8.astype("float32") / 255.0
+    return image_28_uint8, image_28
+
+
+if predict:
+    if source_image is None:
+        st.warning("Dibuja, captura o carga una imagen antes de clasificarla.")
+    else:
+        model_path = MODEL_PATH if MODEL_PATH.exists() else FALLBACK_MODEL_PATH
+        if not model_path.exists():
+            st.error(
+                "No se encontró un modelo compatible. Coloca `fashion_mnist_modelo.keras` "
+                "junto a `app.py`."
+            )
+        else:
+            try:
+                model = load_model(str(model_path))
+                image_28_uint8, image_28 = prepare_image(source_image)
+                input_shape = model.input_shape
+                if len(input_shape) == 3:
+                    model_input = image_28[np.newaxis, ...]
+                elif len(input_shape) == 4:
+                    model_input = image_28[np.newaxis, ..., np.newaxis]
+                else:
+                    model_input = image_28.reshape(1, -1)
+                probabilities = np.asarray(model.predict(model_input, verbose=0))[0]
+                predicted_index = int(np.argmax(probabilities))
+                confidence = float(probabilities[predicted_index]) * 100
+
+                st.divider()
+                st.subheader("Resultado del análisis")
+                result_column, preview_column = st.columns([1.4, 1])
+                with result_column:
+                    st.markdown(
+                        f'<div class="result"><p class="result-name">{CLASS_NAMES[predicted_index]}</p><p class="result-score">fuente · {source_name} · confianza · {confidence:.1f}%</p></div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.progress(min(max(confidence / 100, 0.0), 1.0))
+                with preview_column:
+                    st.image(
+                        image_28_uint8,
+                        caption=f"Imagen en grises · 28 × 28 · máximo {image_28_uint8.max()}/255",
+                        clamp=True,
+                        use_container_width=True,
+                    )
+            except Exception as error:
+                st.error(f"No fue posible realizar la predicción: {error}")
+
+st.markdown("<footer>Autor: Javier Luna<br>UNAB 2026</footer>", unsafe_allow_html=True)
